@@ -29,7 +29,7 @@ export async function findOrCreateActiveBicepFile(
   context: IActionContext,
   documentUri: Uri | undefined,
   prompt: string,
-  options?: {
+  options: {
     considerActiveEditor?: boolean;
   }
 ): Promise<Uri> {
