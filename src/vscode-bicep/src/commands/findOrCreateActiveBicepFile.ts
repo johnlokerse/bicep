@@ -12,13 +12,7 @@ import {
 import * as path from "path";
 import * as os from "os";
 import * as fse from "fs-extra";
-import {
-  QuickPickItemKind,
-  TextDocument,
-  Uri,
-  window,
-  workspace,
-} from "vscode";
+import { TextDocument, Uri, window, workspace } from "vscode";
 
 type TargetFile =
   | "rightClickOrMenu"
@@ -80,7 +74,13 @@ export async function findOrCreateActiveBicepFile(
     return visibleBicepFiles[0];
   }
 
+  if (workspaceBicepFiles.length + visibleBicepFiles.length === 0) {
+    // Ask to create a new Bicep file...
+    return await queryCreateBicepFile(ui, properties);
+  }
+
   // We need to ask the user which existing file to use
+  properties.targetFile = "quickPick";
 
   // Create deduped, sorted array of all available Bicep files
   const bicepFilesMap = new Map<string, Uri>();
@@ -88,30 +88,26 @@ export async function findOrCreateActiveBicepFile(
     .concat(visibleBicepFiles)
     .forEach((bf) => bicepFilesMap.set(bf.fsPath, bf));
   const bicepFiles = Array.from(bicepFilesMap.values());
-  if (bicepFiles.length === 0) {
-    // Ask to create a new Bicep file...
-    return await queryCreateBicepFile(ui, properties);
-  }
+  bicepFiles.sort((a, b) => compareStrings(a.path, b.path));
 
   // Show quick pick
   const entries: IAzureQuickPickItem<Uri>[] = [];
   if (activeEditor?.document?.languageId === "bicep") {
     // Add active editor to the top of the list
     addFileQuickPick(entries, activeEditor.document.uri, true);
-    if (bicepFilesMap.size > 0) {
-      entries.push({
-        label: "",
-        data: Uri.file("."),
-        kind: QuickPickItemKind.Separator,
-      });
-    }
+    // if (bicepFiles.length > 0) {
+    //   entries.push({
+    //     label: "",
+    //     data: Uri.file("."),
+    //     kind: QuickPickItemKind.Separator,
+    //   });
+    // }
   }
-  bicepFilesMap.forEach((u) => addFileQuickPick(entries, u, false));
+  bicepFiles.forEach((u) => addFileQuickPick(entries, u, false));
 
   const response = await ui.showQuickPick(entries, {
     placeHolder: prompt,
   });
-  properties.targetFile = "quickPick";
   return response.data;
 }
 
@@ -131,10 +127,14 @@ function addFileQuickPick(
     : path.basename(uri.fsPath);
 
   items.push({
-    label: isActiveEditor ? `$(chevron-right) ${relativePath}` : relativePath,
+    label:
+      (isActiveEditor ? `$(chevron-right) ${relativePath}` : relativePath) +
+      " " +
+      uri.path,
     data: uri,
     alwaysShow: true,
     description: isActiveEditor ? "Active editor" : undefined,
+    id: uri.path, // Used for most-recent persistence
   });
 }
 
@@ -178,4 +178,14 @@ async function queryCreateBicepFile(
   await window.showTextDocument(document);
 
   return uri;
+}
+
+function compareStrings(a: string, b: string): number {
+  if (a > b) {
+    return 1;
+  } else if (b > a) {
+    return -1;
+  } else {
+    return 0;
+  }
 }
