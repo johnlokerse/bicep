@@ -123,10 +123,7 @@ function addFileQuickPick(
     : path.basename(uri.fsPath);
 
   items.push({
-    label:
-      (isActiveEditor ? `$(chevron-right) ${relativePath}` : relativePath) +
-      " " +
-      uri.path,
+    label: isActiveEditor ? `$(chevron-right) ${relativePath}` : relativePath,
     data: uri,
     alwaysShow: true,
     description: isActiveEditor ? "Active editor" : undefined,
