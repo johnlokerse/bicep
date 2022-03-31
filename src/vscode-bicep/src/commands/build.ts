@@ -21,8 +21,7 @@ export class BuildCommand implements Command {
     documentUri = await findOrCreateActiveBicepFile(
       context,
       documentUri,
-      "Choose which Bicep file to build",
-      { considerActiveEditor: true }
+      "Choose which Bicep file to build"
     );
 
     try {

@@ -55,7 +55,7 @@ export class DeployCommand implements Command {
       context,
       documentUri,
       "Choose which Bicep file to deploy",
-      { considerActiveEditor: false }
+      { alwaysAskWhenMultipleAvailable: true }
     );
 
     const documentPath = documentUri.fsPath;

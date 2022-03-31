@@ -16,8 +16,7 @@ async function showVisualizer(
   documentUri = await findOrCreateActiveBicepFile(
     context,
     documentUri,
-    "Choose which Bicep file to visualize",
-    { considerActiveEditor: true }
+    "Choose which Bicep file to visualize"
   );
 
   const viewColumn = sideBySide

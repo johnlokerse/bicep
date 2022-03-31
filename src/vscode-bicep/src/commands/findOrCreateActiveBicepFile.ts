@@ -12,7 +12,13 @@ import {
 import * as path from "path";
 import * as os from "os";
 import * as fse from "fs-extra";
-import { TextDocument, Uri, window, workspace } from "vscode";
+import {
+  QuickPickItemKind,
+  TextDocument,
+  Uri,
+  window,
+  workspace,
+} from "vscode";
 
 type TargetFile =
   | "rightClickOrMenu"
@@ -28,20 +34,23 @@ export async function findOrCreateActiveBicepFile(
   context: IActionContext,
   documentUri: Uri | undefined,
   prompt: string,
-  options: {
-    alwaysAskIfUriNotSpecified?: boolean;
+  options?: {
+    // If true, will ask the user which file to apply the command to, unless there's only one Bicep file available.  If will do this even
+    //   if the active editor is a bicep file.
+    // This doesn't apply if a URI is passed in to the command.  In other words, it only applies if the user invokes the command
+    //   via the command palette or a keyboard shortcut.
+    alwaysAskWhenMultipleAvailable?: boolean;
   }
 ): Promise<Uri> {
-  await window.showErrorMessage("1");
   const properties = <Properties>context.telemetry.properties;
   const ui = context.ui;
   const activeEditor = window.activeTextEditor;
   const activeEditorIsBicep = activeEditor?.document?.languageId === "bicep";
-  const alwaysAskIfUriNotSpecified = !!options?.alwaysAskIfUriNotSpecified;
+  const alwaysAskWhenMultipleAvailable =
+    !!options?.alwaysAskWhenMultipleAvailable;
 
   if (documentUri) {
     // The command specified a specific URI, so act on that (right-click or context menu)
-    await window.showErrorMessage("1a");
     properties.targetFile = "rightClickOrMenu";
     return documentUri;
   }
@@ -53,41 +62,51 @@ export async function findOrCreateActiveBicepFile(
     .filter((e) => e.document.languageId === "bicep")
     .map((e) => e.document.uri);
 
-  if (!alwaysAskIfUriNotSpecified) {
-    if (activeEditorIsBicep) {
-      properties.targetFile = "activeEditor";
-      return activeEditor.document.uri;
-    }
-
-    if (workspaceBicepFiles.length === 1 && visibleBicepFiles.length === 0) {
-      // Only a single Bicep file in the workspace
-      properties.targetFile = "singleInWorkspace";
-      return workspaceBicepFiles[0];
-    } else if (
-      visibleBicepFiles.length === 1 &&
-      workspaceBicepFiles.length === 0
-    ) {
-      // Only a single Bicep file as the active editor in an editor group (important for walkthrough scenarios)
-      properties.targetFile = "singleInVisibleEditors";
-      return visibleBicepFiles[0];
-    }
+  if (!alwaysAskWhenMultipleAvailable && activeEditorIsBicep) {
+    properties.targetFile = "activeEditor";
+    return activeEditor.document.uri;
   }
 
-  const bicepFiles = workspaceBicepFiles.concat(visibleBicepFiles);
+  if (workspaceBicepFiles.length === 1 && visibleBicepFiles.length === 0) {
+    // Only a single Bicep file in the workspace
+    properties.targetFile = "singleInWorkspace";
+    return workspaceBicepFiles[0];
+  } else if (
+    visibleBicepFiles.length === 1 &&
+    workspaceBicepFiles.length === 0
+  ) {
+    // Only a single Bicep file as the active editor in an editor group (important for walkthrough scenarios)
+    properties.targetFile = "singleInVisibleEditors";
+    return visibleBicepFiles[0];
+  }
+
+  // We need to ask the user which existing file to use
+
+  // Create deduped, sorted array of all available Bicep files
+  const bicepFilesMap = new Map<string, Uri>();
+  workspaceBicepFiles
+    .concat(visibleBicepFiles)
+    .forEach((bf) => bicepFilesMap.set(bf.fsPath, bf));
+  const bicepFiles = Array.from(bicepFilesMap.values());
   if (bicepFiles.length === 0) {
     // Ask to create a new Bicep file...
     return await queryCreateBicepFile(ui, properties);
   }
 
-  // We need to ask the user which existing file to use
-  const entries: IAzureQuickPickItem<Uri>[] = bicepFiles.map((u) =>
-    createRelativeFileQuickPick(u)
-  );
+  // Show quick pick
+  const entries: IAzureQuickPickItem<Uri>[] = [];
   if (activeEditor?.document?.languageId === "bicep") {
-    await window.showErrorMessage("2");
     // Add active editor to the top of the list
-    entries.unshift(createRelativeFileQuickPick(activeEditor.document.uri));
+    addFileQuickPick(entries, activeEditor.document.uri, true);
   }
+  if (bicepFilesMap.size > 0) {
+    entries.push({
+      label: "",
+      data: Uri.file("."),
+      kind: QuickPickItemKind.Separator,
+    });
+  }
+  bicepFilesMap.forEach((u) => addFileQuickPick(entries, u, false));
 
   const response = await ui.showQuickPick(entries, {
     placeHolder: prompt,
@@ -96,17 +115,27 @@ export async function findOrCreateActiveBicepFile(
   return response.data;
 }
 
-function createRelativeFileQuickPick(uri: Uri): IAzureQuickPickItem<Uri> {
+function addFileQuickPick(
+  items: IAzureQuickPickItem<Uri>[],
+  uri: Uri,
+  isActiveEditor: boolean
+): void {
+  if (items.find((i) => i.data === uri)) {
+    return;
+  }
+
   const workspaceRoot: string | undefined =
     workspace.getWorkspaceFolder(uri)?.uri.fsPath;
   const relativePath = workspaceRoot
     ? path.relative(workspaceRoot, uri.fsPath)
     : path.basename(uri.fsPath);
 
-  return <IAzureQuickPickItem<Uri>>{
-    label: relativePath,
+  items.push({
+    label: isActiveEditor ? `$(arrow-right) ${relativePath}` : relativePath,
     data: uri,
-  };
+    alwaysShow: true,
+    description: isActiveEditor ? "Active editor" : undefined,
+  });
 }
 
 async function queryCreateBicepFile(
