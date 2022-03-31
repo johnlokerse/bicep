@@ -98,13 +98,13 @@ export async function findOrCreateActiveBicepFile(
   if (activeEditor?.document?.languageId === "bicep") {
     // Add active editor to the top of the list
     addFileQuickPick(entries, activeEditor.document.uri, true);
-  }
-  if (bicepFilesMap.size > 0) {
-    entries.push({
-      label: "",
-      data: Uri.file("."),
-      kind: QuickPickItemKind.Separator,
-    });
+    if (bicepFilesMap.size > 0) {
+      entries.push({
+        label: "",
+        data: Uri.file("."),
+        kind: QuickPickItemKind.Separator,
+      });
+    }
   }
   bicepFilesMap.forEach((u) => addFileQuickPick(entries, u, false));
 
@@ -131,7 +131,7 @@ function addFileQuickPick(
     : path.basename(uri.fsPath);
 
   items.push({
-    label: isActiveEditor ? `$(arrow-right) ${relativePath}` : relativePath,
+    label: isActiveEditor ? `$(chevron-right) ${relativePath}` : relativePath,
     data: uri,
     alwaysShow: true,
     description: isActiveEditor ? "Active editor" : undefined,
