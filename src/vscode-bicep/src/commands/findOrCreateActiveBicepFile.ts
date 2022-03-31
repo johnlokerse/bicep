@@ -61,34 +61,30 @@ export async function findOrCreateActiveBicepFile(
     return activeEditor.document.uri;
   }
 
-  if (workspaceBicepFiles.length === 1 && visibleBicepFiles.length === 0) {
-    // Only a single Bicep file in the workspace
-    properties.targetFile = "singleInWorkspace";
-    return workspaceBicepFiles[0];
-  } else if (
-    visibleBicepFiles.length === 1 &&
-    workspaceBicepFiles.length === 0
-  ) {
-    // Only a single Bicep file as the active editor in an editor group (important for walkthrough scenarios)
-    properties.targetFile = "singleInVisibleEditors";
-    return visibleBicepFiles[0];
+  // Create deduped, sorted array of all available Bicep files (in workspace and visible editors)
+  const map = new Map<string, Uri>();
+  workspaceBicepFiles
+    .concat(visibleBicepFiles)
+    .forEach((bf) => map.set(bf.fsPath, bf));
+  const bicepFilesSorted = Array.from(map.values());
+  bicepFilesSorted.sort((a, b) => compareStrings(a.path, b.path));
+
+  if (bicepFilesSorted.length === 1) {
+    // Only a single Bicep file in the workspace/visible editors
+    properties.targetFile =
+      workspaceBicepFiles.length === 1
+        ? "singleInWorkspace"
+        : "singleInVisibleEditors";
+    return bicepFilesSorted[0];
   }
 
-  if (workspaceBicepFiles.length + visibleBicepFiles.length === 0) {
+  if (bicepFilesSorted.length === 0) {
     // Ask to create a new Bicep file...
     return await queryCreateBicepFile(ui, properties);
   }
 
   // We need to ask the user which existing file to use
   properties.targetFile = "quickPick";
-
-  // Create deduped, sorted array of all available Bicep files
-  const bicepFilesMap = new Map<string, Uri>();
-  workspaceBicepFiles
-    .concat(visibleBicepFiles)
-    .forEach((bf) => bicepFilesMap.set(bf.fsPath, bf));
-  const bicepFiles = Array.from(bicepFilesMap.values());
-  bicepFiles.sort((a, b) => compareStrings(a.path, b.path));
 
   // Show quick pick
   const entries: IAzureQuickPickItem<Uri>[] = [];
@@ -103,7 +99,7 @@ export async function findOrCreateActiveBicepFile(
     //   });
     // }
   }
-  bicepFiles.forEach((u) => addFileQuickPick(entries, u, false));
+  bicepFilesSorted.forEach((u) => addFileQuickPick(entries, u, false));
 
   const response = await ui.showQuickPick(entries, {
     placeHolder: prompt,
@@ -142,6 +138,8 @@ async function queryCreateBicepFile(
   ui: IAzureUserInput,
   properties: Properties
 ): Promise<Uri> {
+  properties.targetFile = "new";
+
   await ui.showWarningMessage(
     "Couldn't find any Bicep files in your workspace. Would you like to create a Bicep file?",
     DialogResponses.yes,
@@ -167,7 +165,6 @@ async function queryCreateBicepFile(
     throw new Error(`Can't save file to location ${uri.toString()}`);
   }
 
-  properties.targetFile = "new";
   await fse.writeFile(
     path,
     "@description('Location of all resources')\nparam location string = resourceGroup().location\n",

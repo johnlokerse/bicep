@@ -308,7 +308,7 @@
         },
         {
           "command": "bicep.showSource",
-          "when": "never"          
+          "when": "never"
         },
         {
           "command": "bicep.gettingStarted.createBicepFile",
