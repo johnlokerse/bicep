@@ -18,7 +18,7 @@ resource /*${1:managedDevOpsPools}*/managedDevOpsPools 'Microsoft.DevOpsInfrastr
         }
       ]
     }
-    maximumConcurrency: /*${8:'maximumConcurrency'}*/'maximumConcurrency'
+    maximumConcurrency: /*${8:'maximumConcurrency'}*/1
     organizationProfile: {
       kind: 'AzureDevOps'
       organizations: [

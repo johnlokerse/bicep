@@ -3,10 +3,10 @@
 // $3 = location
 // $4 = 'Stateless'
 // $5 = 'devCenterProjectResourceId'
-// $6 = 'Standard_DS2_v2'
-// $7 = 'windows-2022/latest'
+// $6 = 'skuName'
+// $7 = 'wellKnownImageName'
 // $8 = 1
-// $9 = 'https://dev.azure.com/organization'
+// $9 = 'organizationUrl'
 
 param location string
 
@@ -21,11 +21,11 @@ resource managedDevOpsPools 'Microsoft.DevOpsInfrastructure/pools@2025-01-21' = 
     fabricProfile: {
       kind: 'Vmss'
       sku: {
-        name: 'Standard_DS2_v2'
+        name: 'skuName'
       }
       images: [
         {
-          wellKnownImageName: 'windows-2022/latest'
+          wellKnownImageName: 'wellKnownImageName'
         }
       ]
     }
@@ -34,7 +34,7 @@ resource managedDevOpsPools 'Microsoft.DevOpsInfrastructure/pools@2025-01-21' = 
       kind: 'AzureDevOps'
       organizations: [
         {
-          url: 'https://dev.azure.com/organization'
+          url: 'organizationUrl'
         }
       ]
     }
